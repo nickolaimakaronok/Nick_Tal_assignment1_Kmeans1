@@ -1,0 +1,20 @@
+# Compiled binaries
+kmeans
+kmean
+*.o
+*.out
+a.out
+
+# Debug symbols (Xcode/macOS)
+*.dSYM/
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Test artifacts
+input_test_data.txt
