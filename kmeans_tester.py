@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-FINAL K-means HW Tester (30+ tests)
+K-means Tester (30+ tests)
 
 ✔ Correct CLI validation tests
 ✔ Deterministic correctness tests
 ✔ Formatting tests (4 decimals)
 ✔ Stress tests
 ✔ Proper Valgrind memory checks
-✔ Accepts assignment-required exit codes (0 success, 1 error)
+✔ Accepts standard exit codes (0 success, 1 error)
 """
 
 import os
@@ -114,7 +114,7 @@ def valgrind_check(cmd, stdin_file):
     code, out, err = run_cmd(vg_cmd, stdin_file)
     text = out + err
 
-    # exit code: allow 0 or 1 (assignment requirement)
+    # exit code: allow 0 or 1
     if code not in (0, 1):
         return False, f"Unexpected exit code {code}"
 
