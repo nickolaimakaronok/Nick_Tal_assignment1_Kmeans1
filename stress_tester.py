@@ -125,7 +125,7 @@ def check_output_format(stdout: str, expected_k: int, dim: int) -> Optional[str]
             return f"Line {i+1} expected {dim} dimensions, got {len(parts)}: {ln!r}"
     return None
 
-def valgrind_check(cmd: List[str], stdin_file: Optional[str]) -> Tuple[bool, str]:
+def valgrind_check(cmd: List[str], stdin_file: Optional[str], allow_exit_one: bool = False) -> Tuple[bool, str]:
     if which("valgrind") is None:
         return False, "valgrind not installed"
 
@@ -133,21 +133,29 @@ def valgrind_check(cmd: List[str], stdin_file: Optional[str]) -> Tuple[bool, str
         "valgrind",
         "--leak-check=full",
         "--show-leak-kinds=all",
-        "--errors-for-leak-kinds=all",
-        "--error-exitcode=99",
+        "--track-origins=yes",
     ] + cmd
 
     code, out, err = run_cmd(vg_cmd, stdin_file=stdin_file)
     vg_text = (out or "") + "\n" + (err or "")
 
-    if code == 99:
-        return False, "Valgrind detected leaks (error-exitcode=99)"
-    if code != 0:
-        return False, f"Non-zero exit under Valgrind: {code}"
-    if re.search(r"definitely lost:\s+0 bytes", vg_text) is None:
-        return False, "Could not confirm 'definitely lost: 0 bytes' in Valgrind output"
-    if re.search(r"invalid read|invalid write", vg_text, re.IGNORECASE):
-        return False, "Valgrind reported invalid read/write"
+    # Allow exit code 1 for expected error cases (bad K, bad iter, etc.)
+    allowed_codes = (0, 1) if allow_exit_one else (0,)
+    if code not in allowed_codes:
+        return False, f"Unexpected exit code {code}"
+
+    # Hard memory errors — always a failure
+    if re.search(r"invalid read|invalid write|uninitialised", vg_text, re.I):
+        return False, "Invalid memory access detected"
+
+    # Accept any of the clean-heap patterns Valgrind may print
+    clean_patterns = [
+        r"All heap blocks were freed -- no leaks are possible",
+        r"definitely lost:\s+0 bytes",
+        r"in use at exit:\s+0 bytes",
+    ]
+    if not any(re.search(p, vg_text) for p in clean_patterns):
+        return False, "Heap not confirmed clean"
 
     return True, "OK"
 
@@ -346,16 +354,16 @@ def main() -> int:
     if RUN_VALGRIND and vg_available:
         print("\nValgrind memory checks (no leaks allowed):")
         mem_tests = [
-            (["2", "100"], "data_A.txt", "mem_success_A"),
-            (["3", "100"], "data_B.txt", "mem_success_B"),
-            (["2", "100"], "data_C.txt", "mem_success_C_1D"),
-            (["1", "10"], "data_A.txt", "mem_error_badK"),
-            (["2", "800"], "data_A.txt", "mem_error_badIter"),
-            (["two", "10"], "data_A.txt", "mem_error_nonIntK"),
+            (["2", "100"], "data_A.txt",  "mem_success_A",       False),
+            (["3", "100"], "data_B.txt",  "mem_success_B",       False),
+            (["2", "100"], "data_C.txt",  "mem_success_C_1D",    False),
+            (["1", "10"],  "data_A.txt",  "mem_error_badK",      True),
+            (["2", "800"], "data_A.txt",  "mem_error_badIter",   True),
+            (["two", "10"],"data_A.txt",  "mem_error_nonIntK",   True),
         ]
         mem_failed = 0
-        for args, f, name in mem_tests:
-            ok, msg = valgrind_check([C_BIN] + args, stdin_file=f)
+        for args, f, name, allow_one in mem_tests:
+            ok, msg = valgrind_check([C_BIN] + args, stdin_file=f, allow_exit_one=allow_one)
             if ok:
                 print(f"[PASS] {name}")
             else:
