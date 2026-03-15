@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-K-means HW tester (35+ cases) + memory leak check (Valgrind)
+K-means stress tester (35+ cases) + memory leak check (Valgrind)
 Adjusted to match your kmeans.c behavior:
 - Provide stdin for any test that doesn't fail before reading input
 - Removed whitespace-trailing/CRLF tests because scanf("%lf%c") treats them as delimiters
